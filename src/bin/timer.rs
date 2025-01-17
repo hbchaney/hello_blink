@@ -19,7 +19,7 @@ fn main() -> ! {
     let pwr = device.PWR.constrain().freeze();  
     let mut rcc = device.RCC.freeze(Config::hsi(), pwr);
     let mut sys_delay = cp.SYST.delay(&rcc.clocks); 
-    let tim = Timer::new(device.TIM6, &rcc.clocks); 
+    let _tim = Timer::new(device.TIM6, &rcc.clocks); 
 
     let gpioa = device.GPIOA.split(&mut rcc); 
 
