@@ -19,7 +19,7 @@ fn main() -> ! {
     let pll_conf = PllConfig {
         mux: PllSrc::HSI,
             m: PllMDiv::DIV_4,
-            n: PllNMul::MUL_70,
+            n: PllNMul::MUL_75,
             r: Some(PllRDiv::DIV_2),
             q: Some(stm32g4xx_hal::rcc::PllQDiv::DIV_2),
             p: Some(stm32g4xx_hal::rcc::PllPDiv::DIV_2),
