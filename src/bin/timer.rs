@@ -5,33 +5,66 @@ use cortex_m_rt::entry;
 use panic_halt as _;
 
 use stm32g4xx_hal::{
-    pac, prelude::*, pwr::PwrExt, rcc::Config, timer::Timer,
+    adc::config::{self, Clock}, gpio::GpioExt, pac::{rcc::pllcfgr, Peripherals}, prelude::SetDutyCycle, pwm::PwmExt, pwr::PwrExt, rcc::{Config, PllConfig, PllMDiv, PllNMul, PllRDiv, PllSrc, RccExt}, stm32::TIM1, time::RateExtU32, timer::Timer
 };
 
-use rtt_target::{rtt_init_print, rprintln};
+use rtt_target::{rprintln, rtt_init_print};
 
 #[entry]
 fn main() -> ! {
     rtt_init_print!();
 
-    let device = pac::Peripherals::take().unwrap(); 
-    let cp = cortex_m::Peripherals::take().expect("cannot take core peripherals");
-    let pwr = device.PWR.constrain().freeze();  
-    let mut rcc = device.RCC.freeze(Config::hsi(), pwr);
-    let mut sys_delay = cp.SYST.delay(&rcc.clocks); 
-    let _tim = Timer::new(device.TIM6, &rcc.clocks); 
+    let dp = Peripherals::take().expect("cannot take peripherals"); 
+    let rcc = dp.RCC.constrain(); 
+    let pll_conf = PllConfig {
+        mux: PllSrc::HSI,
+            m: PllMDiv::DIV_4,
+            n: PllNMul::MUL_70,
+            r: Some(PllRDiv::DIV_2),
+            q: Some(stm32g4xx_hal::rcc::PllQDiv::DIV_2),
+            p: Some(stm32g4xx_hal::rcc::PllPDiv::DIV_2),
+    };
 
-    let gpioa = device.GPIOA.split(&mut rcc); 
-
-    let mut led = gpioa.pa5.into_push_pull_output();
+    let pll_conf = Config::pll().pll_cfg(pll_conf); 
+    let pwr = dp.PWR.constrain().freeze();
     
-    rprintln!("Hello, world!"); 
-    let mut counter = 0; 
+    let mut rcc = rcc.freeze(pll_conf, pwr); 
+    let gpioc = dp.GPIOC.split(&mut rcc); 
+    let pin = gpioc.pc3.into_alternate(); 
+    
+    let mut pwm = dp.TIM1.pwm(pin, 10.kHz(),&mut rcc); 
 
+    rprintln!("Current APB2 value {}",rcc.clocks.sys_clk.to_MHz()); 
+
+    //attempt to reconfig the timer 
+    unsafe {
+        let tim = &(*TIM1::ptr()); 
+        //Channel 1
+        //Disable the channel before configuring it
+        tim.ccer.modify(|_, w| w.cc1e().clear_bit());
+
+        tim.ccmr1_output().modify(|_, w| w
+        //Preload enable for channel
+        .oc1pe().set_bit()
+
+        //Set mode for channel, the default mode is "frozen" which won't work
+        .oc1m().pwm_mode1()
+        );
+
+        tim.arr.modify(|_, w| w.arr().bits(100-1));
+        tim.psc.modify(|_, w| w.psc().bits(140 - 1)); 
+
+        //Enable the channel
+        tim.ccer.modify(|_, w| w.cc1e().set_bit());
+
+        //Enable the TIM main Output
+        tim.bdtr.modify(|_, w| w.moe().set_bit());
+    }
+
+    pwm.set_duty_cycle(pwm.max_duty_cycle() / 4).unwrap(); 
+    pwm.enable();
+    
     loop {
-        led.toggle().unwrap();
-        sys_delay.delay_ms(1000);
-        counter += 1; 
-        rprintln!("hello again {}", counter); 
+        cortex_m::asm::nop();
     }
 }

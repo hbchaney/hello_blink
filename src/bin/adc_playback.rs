@@ -25,6 +25,8 @@ fn main() -> ! {
     let dp = Peripherals::take().unwrap(); 
     let cp = cortex_m::Peripherals::take().expect("cannot take core peripherals"); 
 
+    
+
     rprintln!("starting rcc stuff"); 
 
     let rcc = dp.RCC.constrain();
