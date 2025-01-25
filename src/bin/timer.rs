@@ -5,14 +5,17 @@ use cortex_m_rt::entry;
 use panic_halt as _;
 
 use stm32g4xx_hal::{
+    adc::config::{self, Clock},
     gpio::GpioExt,
-    pac::Peripherals,
+    pac::{rcc::pllcfgr, Peripherals},
     prelude::SetDutyCycle,
     pwm::PwmExt,
     pwr::PwrExt,
+    pwr::VoltageScale,
     rcc::{Config, PllConfig, PllMDiv, PllNMul, PllRDiv, PllSrc, RccExt},
     stm32::TIM1,
     time::RateExtU32,
+    timer::Timer,
 };
 
 use rtt_target::{rprintln, rtt_init_print};
@@ -23,17 +26,21 @@ fn main() -> ! {
 
     let dp = Peripherals::take().expect("cannot take peripherals");
     let rcc = dp.RCC.constrain();
+    let pwr = dp
+        .PWR
+        .constrain()
+        .vos(VoltageScale::Range1 { enable_boost: true })
+        .freeze();
     let pll_conf = PllConfig {
         mux: PllSrc::HSI,
         m: PllMDiv::DIV_4,
-        n: PllNMul::MUL_75,
+        n: PllNMul::MUL_85,
         r: Some(PllRDiv::DIV_2),
         q: Some(stm32g4xx_hal::rcc::PllQDiv::DIV_2),
         p: Some(stm32g4xx_hal::rcc::PllPDiv::DIV_2),
     };
 
     let pll_conf = Config::pll().pll_cfg(pll_conf);
-    let pwr = dp.PWR.constrain().freeze();
 
     let mut rcc = rcc.freeze(pll_conf, pwr);
     let gpioc = dp.GPIOC.split(&mut rcc);
